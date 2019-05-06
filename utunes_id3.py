@@ -13,11 +13,13 @@ def read_file(path):
     album, = m_easy["album"]
     song, = m_easy["title"]
     track_str, = m_easy["tracknumber"]
-    match = re.fullmatch(r"([0-9]+)/([0-9]+)", track_str)
-    track, total_tracks = match.groups()
+    match = re.match(r"[0-9]+", track_str)
+    assert match, "malformed or missing track data: {}".format(track_str)
+    track = match.group(0)
     disc_str, = m_easy["discnumber"]
-    match = re.fullmatch(r"([0-9]+)/([0-9]+)", disc_str)
-    disc, total_discs = match.groups()
+    match = re.match(r"[0-9]+", disc_str)
+    assert match, "malformed or missing disc data: {}".format(disc_str)
+    disc = match.group(0)
     artist, = m_easy["artist"] or m_easy["albumartist"]
     album_artist, = m_easy["albumartist"] or m_easy["artist"]
     composer, = m_easy.get("composer")
@@ -41,8 +43,6 @@ def read_file(path):
         "_song": song,
         "_track": track,
         "_disc": disc,
-        "total_tracks": total_tracks,
-        "total_discs": total_discs,
         "artist": artist,
         "album_artist": album_artist,
         "composer": composer,
