@@ -50,7 +50,6 @@ def parse_comments(comments):
         match = re.fullmatch(r"([^:]+): (.+)", field)
         assert match
         key, val = match.groups()
-        # TODO: handle multiple sources
         assert key not in tags
         tags[key] = val
     for key, val in tags.items():
@@ -114,8 +113,7 @@ def read_file(path):
     refined_source = tags.get("Upstream") or tags.get("Tracklist")
     if refined_source:
         assert re.match(r"https?://", refined_source)
-    # TODO: handle groups, make unique
-    # TODO: handle inherit
+    group = tags.get("Group")
     apic, = m_full.tags.getall("APIC")
     match = re.fullmatch(r"image/([a-z]+)", apic.mime)
     ext = "." + match.group(1)
@@ -146,6 +144,7 @@ def read_file(path):
         "source": source,
         "tracklist": tracklist,
         "refined_source": refined_source,
+        "group": group,
     }
 
 
