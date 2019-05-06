@@ -29,6 +29,7 @@ COMMENT_FIELDS_HAVE_ARGUMENT = {
     "Handled": False,
     "Tag2": False,
     "Date": True,
+    "Estimate": False,
     "Upstream": True,
     "Source": True,
     "Tracklist": True,
@@ -70,10 +71,13 @@ def read_file(path):
     m_full = mutagen.mp3.MP3(path)
     album, = m_easy["album"]
     song, = m_easy["title"]
-    track_str, = m_easy["tracknumber"]
-    match = re.match(r"[0-9]+", track_str)
-    assert match, "malformed or missing track data: {}".format(track_str)
-    track = match.group(0)
+    track_str, = m_easy.get("tracknumber") or (None,)
+    if track_str:
+        match = re.match(r"[0-9]+", track_str)
+        assert match, "malformed or missing track data: {}".format(track_str)
+        track = match.group(0)
+    else:
+        track = None
     disc_str, = m_easy["discnumber"]
     match = re.match(r"[0-9]+", disc_str)
     assert match, "malformed or missing disc data: {}".format(disc_str)
@@ -87,10 +91,13 @@ def read_file(path):
     artist_sort, = m_easy.get("artistsort") or (artist,)
     album_artist_sort, = m_easy.get("albumartistsort") or (album_artist,)
     composer_sort, = m_easy.get("composersort") or (composer,)
-    comments, *_ = m_full.tags.getall("COMM")
-    assert not comments.desc
-    comments, = comments.text
-    tags = parse_comments(comments)
+    comment_tags = m_full.tags.getall("COMM")
+    relevant_comment_tags = [ct for ct in comment_tags if not ct.desc]
+    assert len(relevant_comment_tags) == 1, \
+        "unexpected comments: {}".format(comment_tags)
+    comment_tag, = relevant_comment_tags
+    comment_text, = comment_tag.text
+    tags = parse_comments(comment_text)
     purchase_method_tags = (
         {"Free", "Paid", "Pirated", "Donated", "Bundle", "Gift"} & set(tags)
     )
