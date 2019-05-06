@@ -34,6 +34,7 @@ COMMENT_FIELDS_HAVE_ARGUMENT = {
     "Source": True,
     "Tracklist": True,
     "Bypass": True,
+    "Multiple": False,
 }
 
 
