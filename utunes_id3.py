@@ -8,8 +8,66 @@ import mutagen.easyid3
 import mutagen.mp3
 
 
+COMMENT_FIELDS_HAVE_ARGUMENT = {
+    "Inherit": False,
+    "Group": True,
+    "Free": False,
+    "Paid": True,
+    "Min": True,
+    "Pirated": False,
+    "Donated": True,
+    "Bundle": True,
+    "Artwork": False,
+    "Copyedited": False,
+    "Renamed": False,
+    "Reordered": False,
+    "Combined": False,
+    "Trimmed": False,
+    "Transcoded": False,
+    "Cut": False,
+    "Handled": False,
+    "Tag2": False,
+    "Date": True,
+    "Upstream": True,
+    "Source": True,
+    "Tracklist": True,
+    "Bypass": True,
+}
+
+
+def parse_comments(comments):
+    header, *longfields = comments.splitlines()
+    assert header.startswith("\\") and header.endswith("\\")
+    fields = header[1:-1].split("\\")
+    tags = {}
+    for field in fields:
+        match = re.fullmatch(r"([^:]+)(?::(.+))?", field)
+        assert match
+        key, val = match.groups()
+        assert key not in tags
+        tags[key] = val
+    for field in longfields:
+        match = re.fullmatch(r"([^:]+): (.+)", field)
+        assert match
+        key, val = match.groups()
+        # TODO: handle multiple sources
+        assert key not in tags
+        tags[key] = val
+    for key, val in tags.items():
+        if COMMENT_FIELDS_HAVE_ARGUMENT[key]:
+            assert val is not None
+        else:
+            assert val is None
+    return tags
+
+
+def yesno(b):
+    return "yes" if b else "no"
+
+
 def read_file(path):
     m_easy = mutagen.easyid3.EasyID3(path)
+    m_full = mutagen.mp3.MP3(path)
     album, = m_easy["album"]
     song, = m_easy["title"]
     track_str, = m_easy["tracknumber"]
@@ -29,8 +87,35 @@ def read_file(path):
     artist_sort, = m_easy.get("artistsort") or (artist,)
     album_artist_sort, = m_easy.get("albumartistsort") or (album_artist,)
     composer_sort, = m_easy.get("composersort") or (composer,)
-    # TODO: handle comments
-    m_full = mutagen.mp3.MP3(path)
+    comments, *_ = m_full.tags.getall("COMM")
+    assert not comments.desc
+    comments, = comments.text
+    tags = parse_comments(comments)
+    purchase_method_tags = (
+        {"Free", "Paid", "Pirated", "Donated", "Bundle"} & set(tags)
+    )
+    purchase_method_tag, = purchase_method_tags
+    acquired_legally = purchase_method_tag in ("Free", "Paid", "Bundle")
+    acquired_illegally = purchase_method_tag in ("Pirated", "Donated")
+    as_bundle = purchase_method_tag == "Bundle"
+    paid = tags[purchase_method_tag]
+    assert re.fullmatch(r"[0-9]+\.[0-9]{2}", paid)
+    min_price = tags.get("Min")
+    if min_price:
+        assert re.fullmatch(r"[0-9]+\.[0-9]{2}", min_price)
+    date = tags["Date"]
+    assert re.fullmatch("[0-9]{4}-[0-9]{2}-[0-9]{2}", date)
+    source = tags["Source"]
+    assert re.match(r"https?://", source)
+    tracklist = tags.get("Tracklist")
+    if tracklist:
+        assert re.match(r"https?://", tracklist)
+    assert not ("Upstream" in tags and "Bypass" in tags)
+    refined_source = tags.get("Upstream") or tags.get("Tracklist")
+    if refined_source:
+        assert re.match(r"https?://", refined_source)
+    # TODO: handle groups, make unique
+    # TODO: handle inherit
     apic, = m_full.tags.getall("APIC")
     match = re.fullmatch(r"image/([a-z]+)", apic.mime)
     ext = "." + match.group(1)
@@ -52,6 +137,15 @@ def read_file(path):
         "artist_sort": artist_sort,
         "album_artist_sort": album_artist_sort,
         "composer_sort": composer_sort,
+        "acquired_legally": yesno(acquired_legally),
+        "acquired_illegally": yesno(acquired_illegally),
+        "as_bundle": yesno(as_bundle),
+        "paid": paid,
+        "min_price": min_price,
+        "date": date,
+        "source": source,
+        "tracklist": tracklist,
+        "refined_source": refined_source,
     }
 
 
