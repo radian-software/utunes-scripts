@@ -17,6 +17,7 @@ COMMENT_FIELDS_HAVE_ARGUMENT = {
     "Pirated": False,
     "Donated": True,
     "Bundle": True,
+    "Gift": True,
     "Artwork": False,
     "Copyedited": False,
     "Renamed": False,
@@ -54,9 +55,9 @@ def parse_comments(comments):
         tags[key] = val
     for key, val in tags.items():
         if COMMENT_FIELDS_HAVE_ARGUMENT[key]:
-            assert val is not None
+            assert val is not None, "field {} should have arg".format(key)
         else:
-            assert val is None
+            assert val is None, "field {} shouldn't have arg".format(key)
     return tags
 
 
@@ -77,9 +78,9 @@ def read_file(path):
     match = re.match(r"[0-9]+", disc_str)
     assert match, "malformed or missing disc data: {}".format(disc_str)
     disc = match.group(0)
-    artist, = m_easy["artist"] or m_easy["albumartist"]
-    album_artist, = m_easy["albumartist"] or m_easy["artist"]
-    composer, = m_easy.get("composer")
+    artist, = m_easy.get("artist") or m_easy("albumartist")
+    album_artist, = m_easy.get("albumartist") or m_easy.get("artist")
+    composer, = m_easy.get("composer") or (None,)
     year, = m_easy.get("date")
     album_sort, = m_easy.get("albumsort") or (album,)
     song_sort, = m_easy.get("titlesort") or (song,)
@@ -91,26 +92,34 @@ def read_file(path):
     comments, = comments.text
     tags = parse_comments(comments)
     purchase_method_tags = (
-        {"Free", "Paid", "Pirated", "Donated", "Bundle"} & set(tags)
+        {"Free", "Paid", "Pirated", "Donated", "Bundle", "Gift"} & set(tags)
     )
     purchase_method_tag, = purchase_method_tags
-    acquired_legally = purchase_method_tag in ("Free", "Paid", "Bundle")
+    acquired_legally = purchase_method_tag in ("Free", "Paid", "Bundle", "Gift")
     acquired_illegally = purchase_method_tag in ("Pirated", "Donated")
     as_bundle = purchase_method_tag == "Bundle"
+    as_gift = purchase_method_tag == "Gift"
     paid = tags[purchase_method_tag]
-    assert re.fullmatch(r"[0-9]+\.[0-9]{2}", paid)
+    if paid:
+        assert re.fullmatch(r"[0-9]+\.[0-9]{2}", paid), "Paid: {}".format(paid)
     min_price = tags.get("Min")
     if min_price:
-        assert re.fullmatch(r"[0-9]+\.[0-9]{2}", min_price)
+        assert re.fullmatch(
+            r"[0-9]+\.[0-9]{2}", min_price
+        ), "Min: {}".format(min_price)
     date = tags["Date"]
-    assert re.fullmatch("[0-9]{4}-[0-9]{2}-[0-9]{2}", date)
-    source = tags["Source"]
-    assert re.match(r"https?://", source)
+    assert re.fullmatch("[0-9]{4}-[0-9]{2}-[0-9]{2}", date), "Date {}".format(date)
     tracklist = tags.get("Tracklist")
     if tracklist:
         assert re.match(r"https?://", tracklist)
     assert not ("Upstream" in tags and "Bypass" in tags)
-    refined_source = tags.get("Upstream") or tags.get("Tracklist")
+    if "Upstream" in tags:
+        source, refined_source = tags["Upstream"], tags["Source"]
+    elif "Bypass" in tags:
+        source, refined_source = tags["Source"], tags["Bypass"]
+    else:
+        source, refined_source = tags["Source"], None
+    assert re.match(r"https?://", source)
     if refined_source:
         assert re.match(r"https?://", refined_source)
     group = tags.get("Group")
@@ -138,6 +147,7 @@ def read_file(path):
         "acquired_legally": yesno(acquired_legally),
         "acquired_illegally": yesno(acquired_illegally),
         "as_bundle": yesno(as_bundle),
+        "as_gift": yesno(as_gift),
         "paid": paid,
         "min_price": min_price,
         "date": date,
