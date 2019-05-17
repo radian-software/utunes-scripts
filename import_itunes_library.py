@@ -1,11 +1,65 @@
+#!/usr/bin/env python3
+
 import argparse
+import contextlib
 import json
+import pathlib
+import plistlib
+import random
 import re
 import sys
-import tempfile
+import urllib.parse
 
 import mutagen.easyid3
 import mutagen.mp3
+
+THIS_DIR = pathlib.Path(__file__).resolve().parent
+ITUNES_DIR = THIS_DIR.parent / "iTunes"
+ITUNES_MUSIC_DIR = ITUNES_DIR / "iTunes Media" / "Music"
+ARTWORK_DIR = THIS_DIR / "artwork"
+
+
+@contextlib.contextmanager
+def progress(msg):
+    print(msg + "...", file=sys.stderr)
+    yield None
+    print("  done.", file=sys.stderr)
+
+
+def parse_itunes_xml():
+    fname = ITUNES_DIR / "iTunes Music Library.xml"
+    with open(fname, "rb") as f:
+        plist = plistlib.load(f)
+    songs = {}
+    for track_id, track in plist["Tracks"].items():
+        last_play = track.get("Play Date UTC")
+        if last_play:
+            last_play = last_play.isoformat()
+        location = urllib.parse.unquote(track["Location"])
+        match = re.fullmatch(
+            r"file://.+?iTunes Media/Music/(.+)",
+            location)
+        if not match:
+            continue
+        filename, = match.groups()
+        songs[track_id] = {
+            "play_count": track.get("Play Count", 0),
+            "last_play": last_play,
+            "filename": str(ITUNES_MUSIC_DIR / filename),
+        }
+    assert len(songs) >= 5000
+    playlists = {}
+    for playlist in plist["Playlists"]:
+        playlist_songs = []
+        for entry in playlist.get("Playlist Items", []):
+            playlist_songs.append(entry["Track ID"])
+        if not playlist_songs:
+            continue
+        playlists[playlist["Name"]] = playlist_songs
+    return {
+        "songs": songs,
+        "playlists": playlists,
+    }
 
 
 COMMENT_FIELDS_HAVE_ARGUMENT = {
@@ -70,7 +124,7 @@ def yesno(b):
     return "yes" if b else "no"
 
 
-def read_file(path):
+def read_file(path, artwork_cache={}):
     m_easy = mutagen.easyid3.EasyID3(path)
     m_full = mutagen.mp3.MP3(path)
     album, = m_easy["album"]
@@ -105,6 +159,7 @@ def read_file(path):
     purchase_method_tags = (
         {"Free", "Paid", "Pirated", "Donated", "Bundle", "Gift"} & set(tags)
     )
+    assert len(purchase_method_tags) == 1, comment_text
     purchase_method_tag, = purchase_method_tags
     acquired_legally = purchase_method_tag in ("Free", "Paid", "Bundle", "Gift")
     acquired_illegally = purchase_method_tag in ("Pirated", "Donated")
@@ -137,15 +192,24 @@ def read_file(path):
     apic, = m_full.tags.getall("APIC")
     match = re.fullmatch(r"image/([a-z]+)", apic.mime)
     ext = "." + match.group(1)
-    with tempfile.NamedTemporaryFile("wb", delete=False, suffix=ext) as f:
-        f.write(apic.data)
-    artwork = f.name
+    artwork_fname = (
+        ARTWORK_DIR / ("-".join(re.findall(r"[a-z0-9]+", album.lower())) + ext)
+    )
+    if album not in artwork_cache:
+        if artwork_fname.is_file():
+            with open(artwork_fname, "rb") as f:
+                artwork_cache[album] = f.read()
+            assert apic.data == artwork_cache[album]
+        artwork_fname.parent.mkdir(exist_ok=True)
+        with open(artwork_fname, "wb") as f:
+            f.write(apic.data)
+    artwork = artwork_fname.name
     return {
-        "_artwork": artwork,
-        "_album": album,
-        "_song": song,
-        "_track": track,
-        "_disc": disc,
+        "artwork": artwork,
+        "album": album,
+        "song": song,
+        "track": track,
+        "disc": disc,
         "artist": artist,
         "album_artist": album_artist,
         "composer": composer,
@@ -169,26 +233,65 @@ def read_file(path):
     }
 
 
-def write_file(data, path):
-    assert False, "not yet implemented"
+def read_songs(songs, itunes_data, random_order, starting_id3):
+    itunes_songs = [{"itunes_id": iid, **isong}
+                    for iid, isong in itunes_data["songs"].items()]
+    if random_order:
+        random.shuffle(itunes_songs)
+    else:
+        itunes_songs.sort(key=lambda s: s["filename"])
+    if starting_id3:
+        itunes_songs.sort(key=lambda s: int(s["itunes_id"]) != int(starting_id3))
+    for itunes_song in itunes_songs:
+        itunes_id = itunes_song["itunes_id"]
+        if itunes_id in songs and itunes_id != starting_id3:
+            continue
+        filename = itunes_song["filename"]
+        print("    {} {}".format(itunes_id.zfill(5), filename))
+        song = read_file(filename)
+        for key in ("itunes_id", "play_count", "last_play"):
+            song[key] = itunes_song[key]
+        songs[itunes_id] = song
 
 
 def main():
     parser = argparse.ArgumentParser()
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--read", metavar="FILE", default=None)
-    group.add_argument("--write", metavar="FILE", default=None)
+    parser.add_argument("--force-xml", action="store_true")
+    parser.add_argument("--force-id3", action="store_true")
+    parser.add_argument("--random-id3", action="store_true")
+    parser.add_argument("--starting-id3", default=None)
     args = parser.parse_args()
-    if args.read is not None:
-        data = read_file(args.read)
-        json.dump(data, sys.stdout, indent=2)
-        print()
-    elif args.write is not None:
-        data = json.load(sys.stdin)
-        write_file(data, args.write)
+    itunes_json = THIS_DIR / "itunes.json"
+    if args.force_xml or not itunes_json.is_file():
+        with progress("Parsing iTunes XML"):
+            itunes_data = parse_itunes_xml()
+        with open(itunes_json, "w") as f:
+            json.dump(itunes_data, f, indent=2)
+            f.write("\n")
     else:
-        assert False
-    sys.exit(0)
+        with open(itunes_json) as f:
+            itunes_data = json.load(f)
+    songs_json = THIS_DIR / "songs.json"
+    if args.force_id3 or not songs_json.is_file():
+        songs = {}
+    else:
+        with open(songs_json) as f:
+            songs = json.load(f)
+    orig_len = len(songs)
+    try:
+        with progress("Reading song ID3 data"):
+            read_songs(songs, itunes_data, random_order=args.random_id3,
+                       starting_id3=args.starting_id3)
+    finally:
+        if len(songs) > orig_len:
+            with open(songs_json, "w") as f:
+                json.dump(songs, f, indent=2)
+                f.write("\n")
+    artworks = set()
+    for artwork_fname in ARTWORK_DIR.iterdir():
+        artwork = artwork_fname.stem
+        assert artwork not in artworks, artwork
+        artworks.add(artwork)
 
 
 if __name__ == "__main__":
