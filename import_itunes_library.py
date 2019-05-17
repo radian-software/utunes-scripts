@@ -112,6 +112,7 @@ def parse_comments(comments):
         assert key not in tags
         tags[key] = val
     for key, val in tags.items():
+        assert key in COMMENT_FIELDS_HAVE_ARGUMENT, comments
         if COMMENT_FIELDS_HAVE_ARGUMENT[key]:
             assert val is not None, "field {} should have arg".format(key)
         else:
