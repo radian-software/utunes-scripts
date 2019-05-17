@@ -13,6 +13,21 @@ import urllib.parse
 import mutagen.easyid3
 import mutagen.mp3
 
+
+def walk_path(p):
+    """
+    Return an iterable sequence of all paths that are subpaths of p,
+    including p itself and all files and directories it contains
+    either directly or indirectly. Does not follow symlinks.
+    """
+    yield p
+    if p.is_symlink():
+        return
+    if p.is_dir():
+        for sp in p.iterdir():
+            yield from walk_path(sp)
+
+
 THIS_DIR = pathlib.Path(__file__).resolve().parent
 ITUNES_DIR = THIS_DIR.parent / "iTunes"
 ITUNES_MUSIC_DIR = ITUNES_DIR / "iTunes Media" / "Music"
@@ -23,7 +38,6 @@ ARTWORK_DIR = THIS_DIR / "artwork"
 def progress(msg):
     print(msg + "...", file=sys.stderr)
     yield None
-    print("  done.", file=sys.stderr)
 
 
 def parse_itunes_xml():
@@ -42,8 +56,9 @@ def parse_itunes_xml():
         if not match:
             continue
         filename, = match.groups()
+        filename = filename.replace("e\u0301", "é")
         songs[track_id] = {
-            "play_count": track.get("Play Count", 0),
+            "play_count": str(track.get("Play Count", 0)),
             "last_play": last_play,
             "filename": str(ITUNES_MUSIC_DIR / filename),
         }
@@ -72,6 +87,7 @@ COMMENT_FIELDS_HAVE_ARGUMENT = {
     "Donated": True,
     "Bundle": True,
     "Gift": True,
+    "BundleGift": True,
     "Tag2": False,
     "Date": True,
     "Upstream": True,
@@ -103,7 +119,7 @@ def parse_comments(comments):
         match = re.fullmatch(r"([^:]+)(?::(.+))?", field)
         assert match
         key, val = match.groups()
-        assert key not in tags
+        assert key not in tags, comments
         tags[key] = val
     for field in longfields:
         match = re.fullmatch(r"([^:]+): (.+)", field)
@@ -117,7 +133,7 @@ def parse_comments(comments):
             assert val is not None, "field {} should have arg".format(key)
         else:
             assert val is None, "field {} shouldn't have arg".format(key)
-    assert "Tag2" in tags
+    assert "Tag2" in tags, comments
     return tags
 
 
@@ -125,7 +141,7 @@ def yesno(b):
     return "yes" if b else "no"
 
 
-def read_file(path, artwork_cache={}):
+def read_file(path):
     m_easy = mutagen.easyid3.EasyID3(path)
     m_full = mutagen.mp3.MP3(path)
     album, = m_easy["album"]
@@ -141,7 +157,7 @@ def read_file(path, artwork_cache={}):
     match = re.match(r"[0-9]+", disc_str)
     assert match, "malformed or missing disc data: {}".format(disc_str)
     disc = match.group(0)
-    artist, = m_easy.get("artist") or m_easy("albumartist")
+    artist, = m_easy.get("artist") or m_easy.get("albumartist")
     album_artist, = m_easy.get("albumartist") or m_easy.get("artist")
     composer, = m_easy.get("composer") or (None,)
     year, = m_easy.get("date")
@@ -158,14 +174,20 @@ def read_file(path, artwork_cache={}):
     comment_text, = comment_tag.text
     tags = parse_comments(comment_text)
     purchase_method_tags = (
-        {"Free", "Paid", "Pirated", "Donated", "Bundle", "Gift"} & set(tags)
+        {
+            "Free", "Paid", "Pirated",
+            "Donated", "Bundle", "Gift",
+            "BundleGift"
+        } & set(tags)
     )
     assert len(purchase_method_tags) == 1, comment_text
     purchase_method_tag, = purchase_method_tags
-    acquired_legally = purchase_method_tag in ("Free", "Paid", "Bundle", "Gift")
+    acquired_legally = purchase_method_tag in (
+        "Free", "Paid", "Bundle", "Gift", "BundleGift"
+    )
     acquired_illegally = purchase_method_tag in ("Pirated", "Donated")
-    as_bundle = purchase_method_tag == "Bundle"
-    as_gift = purchase_method_tag == "Gift"
+    as_bundle = purchase_method_tag in ("Bundle", "BundleGift")
+    as_gift = purchase_method_tag == ("Gift", "BundleGift")
     paid = tags[purchase_method_tag]
     if paid:
         assert re.fullmatch(r"[0-9]+\.[0-9]{2}", paid), "Paid: {}".format(paid)
@@ -186,7 +208,7 @@ def read_file(path, artwork_cache={}):
         source, refined_source = tags["Source"], tags["Bypass"]
     else:
         source, refined_source = tags["Source"], None
-    assert re.match(r"https?://", source)
+    assert source == "CD" or re.match(r"https?://", source)
     if refined_source:
         assert re.match(r"https?://", refined_source)
     group = tags.get("Group")
@@ -196,11 +218,7 @@ def read_file(path, artwork_cache={}):
     artwork_fname = (
         ARTWORK_DIR / ("-".join(re.findall(r"[a-z0-9]+", album.lower())) + ext)
     )
-    if album not in artwork_cache:
-        if artwork_fname.is_file():
-            with open(artwork_fname, "rb") as f:
-                artwork_cache[album] = f.read()
-            assert apic.data == artwork_cache[album]
+    if not artwork_fname.is_file():
         artwork_fname.parent.mkdir(exist_ok=True)
         with open(artwork_fname, "wb") as f:
             f.write(apic.data)
@@ -252,6 +270,7 @@ def read_songs(songs, itunes_data, random_order, starting_id3):
         song = read_file(filename)
         for key in ("itunes_id", "play_count", "last_play"):
             song[key] = itunes_song[key]
+        song["filename"] = filename
         songs[itunes_id] = song
 
 
@@ -263,15 +282,16 @@ def main():
     parser.add_argument("--starting-id3", default=None)
     args = parser.parse_args()
     itunes_json = THIS_DIR / "itunes.json"
-    if args.force_xml or not itunes_json.is_file():
-        with progress("Parsing iTunes XML"):
+    with progress("Parsing iTunes XML"):
+        if args.force_xml or not itunes_json.is_file():
             itunes_data = parse_itunes_xml()
-        with open(itunes_json, "w") as f:
-            json.dump(itunes_data, f, indent=2)
-            f.write("\n")
-    else:
-        with open(itunes_json) as f:
-            itunes_data = json.load(f)
+            with open(itunes_json, "w") as f:
+                json.dump(itunes_data, f, indent=2)
+                f.write("\n")
+        else:
+            print("  (skipped)")
+            with open(itunes_json) as f:
+                itunes_data = json.load(f)
     songs_json = THIS_DIR / "songs.json"
     if args.force_id3 or not songs_json.is_file():
         songs = {}
@@ -288,11 +308,26 @@ def main():
             with open(songs_json, "w") as f:
                 json.dump(songs, f, indent=2)
                 f.write("\n")
-    artworks = set()
-    for artwork_fname in ARTWORK_DIR.iterdir():
-        artwork = artwork_fname.stem
-        assert artwork not in artworks, artwork
-        artworks.add(artwork)
+        else:
+            print("  (nothing to do)")
+    with progress("Checking for duplicate artwork"):
+        artworks = set()
+        for artwork_fname in ARTWORK_DIR.iterdir():
+            artwork = artwork_fname.stem
+            assert artwork not in artworks, artwork
+            artworks.add(artwork)
+        print("  (none found)")
+    with progress("Checking for missed files"):
+        for s in songs.values():
+            assert "filename" in s, s
+        filenames = {s["filename"] for s in songs.values()}
+        for p in walk_path(ITUNES_MUSIC_DIR):
+            if p.is_dir():
+                continue
+            if ".sync" in p.parts:
+                continue
+            assert str(p) in filenames, p
+        print("  (none found)")
 
 
 if __name__ == "__main__":
