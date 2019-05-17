@@ -9,7 +9,7 @@ import mutagen.mp3
 
 
 COMMENT_FIELDS_HAVE_ARGUMENT = {
-    "Inherit": False,
+    # Ones I still use.
     "Group": True,
     "Free": False,
     "Paid": True,
@@ -18,6 +18,14 @@ COMMENT_FIELDS_HAVE_ARGUMENT = {
     "Donated": True,
     "Bundle": True,
     "Gift": True,
+    "Tag2": False,
+    "Date": True,
+    "Upstream": True,
+    "Source": True,
+    "Tracklist": True,
+    "Bypass": True,
+    # For backwards compatibility.
+    "Inherit": False,
     "Artwork": False,
     "Copyedited": False,
     "Renamed": False,
@@ -27,13 +35,7 @@ COMMENT_FIELDS_HAVE_ARGUMENT = {
     "Transcoded": False,
     "Cut": False,
     "Handled": False,
-    "Tag2": False,
-    "Date": True,
     "Estimate": False,
-    "Upstream": True,
-    "Source": True,
-    "Tracklist": True,
-    "Bypass": True,
     "Multiple": False,
 }
 
@@ -60,6 +62,7 @@ def parse_comments(comments):
             assert val is not None, "field {} should have arg".format(key)
         else:
             assert val is None, "field {} shouldn't have arg".format(key)
+    assert "Tag2" in tags
     return tags
 
 
