@@ -7,6 +7,7 @@ import pathlib
 import plistlib
 import random
 import re
+import shlex
 import sys
 import urllib.parse
 
@@ -274,6 +275,9 @@ def read_songs(songs, itunes_data, random_order, starting_id3):
         songs[itunes_id] = song
 
 
+DELIM_CHAR = "|"
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--force-xml", action="store_true")
@@ -328,6 +332,27 @@ def main():
                 continue
             assert str(p) in filenames, p
         print("  (none found)")
+    with progress("Generating write query for song import"):
+        lines = []
+        fields = sorted(next(iter(songs.values())))
+        for s in songs.values():
+            assert set(s) == set(fields)
+            values = [s[f] or "" for f in fields]
+            for value in values:
+                assert DELIM_CHAR not in value, value
+            lines.append(DELIM_CHAR.join(values))
+        format_str = DELIM_CHAR.join("{" + f + "}" for f in fields) + "\n"
+        cmd = "utunes write {} < import.tab".format(shlex.quote(format_str))
+        with open(THIS_DIR / "import.tab", "w") as f:
+            for line in lines:
+                f.write(line)
+                f.write("\n")
+        with open(THIS_DIR / "import.cmd", "w") as f:
+            f.write(cmd)
+            f.write("\n")
+        print()
+        print("  $ " + cmd)
+        print()
 
 
 if __name__ == "__main__":
