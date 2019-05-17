@@ -275,7 +275,7 @@ def read_songs(songs, itunes_data, random_order, starting_id3):
         songs[itunes_id] = song
 
 
-DELIM_CHAR = "|"
+DELIM_CHAR = "@"
 
 
 def main():
@@ -341,7 +341,10 @@ def main():
             for value in values:
                 assert DELIM_CHAR not in value, value
             lines.append(DELIM_CHAR.join(values))
-        format_str = DELIM_CHAR.join("{" + f + "}" for f in fields) + "\n"
+        format_str = DELIM_CHAR.join(
+            "(?P<" + f + ">[^" + DELIM_CHAR + "]*)"
+            for f in fields
+        ) + "\n"
         cmd = "utunes write {} < import.tab".format(shlex.quote(format_str))
         with open(THIS_DIR / "import.tab", "w") as f:
             for line in lines:
