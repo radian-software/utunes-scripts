@@ -8,6 +8,7 @@ import plistlib
 import random
 import re
 import shlex
+import shutil
 import sys
 import urllib.parse
 
@@ -340,22 +341,84 @@ def main():
             values = [s[f] or "" for f in fields]
             for value in values:
                 assert DELIM_CHAR not in value, value
+                assert "\n" not in value, value
             lines.append(DELIM_CHAR.join(values))
-        format_str = DELIM_CHAR.join(
+        regex = DELIM_CHAR.join(
             "(?P<" + f + ">[^" + DELIM_CHAR + "]*)"
             for f in fields
         ) + "\n"
-        cmd = "utunes write {} < import.tab".format(shlex.quote(format_str))
-        with open(THIS_DIR / "import.tab", "w") as f:
+        cmd = "utunes write {} < import-songs-write.tab".format(shlex.quote(regex))
+        with open(THIS_DIR / "import-songs-write.tab", "w") as f:
             for line in lines:
                 f.write(line)
                 f.write("\n")
-        with open(THIS_DIR / "import.cmd", "w") as f:
+        with open(THIS_DIR / "import-songs-write.cmd", "w") as f:
             f.write(cmd)
             f.write("\n")
         print()
         print("  $ " + cmd)
         print()
+    with progress("Generating read query for playlist import"):
+        format_str = "{id}" + DELIM_CHAR + "{itunes_id}\n"
+        cmd = ("utunes read {} --illegal-chars {} > import-playlists-read.tab"
+               .format(shlex.quote(format_str), shlex.quote(DELIM_CHAR + "\n")))
+        with open(THIS_DIR / "import-playlists-read.cmd", "w") as f:
+            f.write(cmd)
+            f.write("\n")
+        print()
+        print("  $ " + cmd)
+        print()
+    with progress("Generating write queries for playlist import"):
+        if not (THIS_DIR / "import-playlists-read.tab").is_file():
+            print("  (skipped as read query has not yet been run)")
+        else:
+            ids = {}
+            with open(THIS_DIR / "import-playlists-read.tab") as f:
+                for line in f:
+                    m = re.fullmatch(r"(.+?)@(.+?)\n", line)
+                    assert m, line
+                    song_id, itunes_id = m.groups()
+                    ids[itunes_id] = song_id
+            try:
+                shutil.rmtree(THIS_DIR / "import-playlists-write")
+            except FileNotFoundError:
+                pass
+            (THIS_DIR / "import-playlists-write").mkdir()
+            cmds = []
+            for playlist_name in sorted(itunes_data["playlists"]):
+                if playlist_name in (
+                        "Audiobooks", "Downloaded", "Library", "Movies",
+                        "Most Played 1000 1", "Music",
+                ):
+                    continue
+                itunes_ids = itunes_data["playlists"][playlist_name]
+                playlist_fname = (
+                    "-".join(re.findall(r"[a-z0-9]+", playlist_name.lower())) + ".tab"
+                )
+                fname = (
+                    THIS_DIR / "import-playlists-write" / playlist_fname
+                )
+                lines = []
+                for itunes_id in itunes_ids:
+                    itunes_id = str(itunes_id)
+                    assert itunes_id in itunes_data["songs"], (playlist_name, itunes_id)
+                    assert itunes_id in ids, (playlist_name, itunes_id)
+                    song_id = ids[itunes_id]
+                    lines.append(song_id + "\n")
+                if not lines:
+                    continue
+                with open(fname, "w") as f:
+                    for line in lines:
+                        f.write(line)
+                regex = "(?P<id>.+)\n"
+                cmds.append("utunes write {} {} < {}"
+                            .format(shlex.quote(regex),
+                                    shlex.quote(playlist_name),
+                                    fname))
+            with open(THIS_DIR / "import-playlists-write.cmd", "w") as f:
+                for cmd in cmds:
+                    f.write(cmd + "\n")
+            print("  (see {})".format(THIS_DIR / "import-playlists-write.cmd"))
 
 
 if __name__ == "__main__":

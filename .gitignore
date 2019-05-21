@@ -1,7 +1,11 @@
 __pycache__
 artwork
-import.cmd
-import.tab
+import-playlists-read.cmd
+import-playlists-read.tab
+import-playlists-write.cmd
+import-playlists-write/*.tab
+import-songs-write.cmd
+import-songs-write.tab
 itunes.json
 server.log
 songs.json
