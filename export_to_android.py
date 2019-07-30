@@ -60,7 +60,7 @@ def get_android_mount_point(android_id):
 def sync_to_android(directory):
     assert directory.is_dir()
     subprocess.run(
-        ["rsync", "-aPh", "--delete", str(EXPORT_DIR) + "/", str(directory) + "/"]
+        ["rsync", "-acPh", "--delete", str(EXPORT_DIR) + "/", str(directory) + "/"]
     )
 
 
