@@ -7,6 +7,7 @@ import-playlists-write/*.tab
 import-songs-write.cmd
 import-songs-write.tab
 itunes.json
+playlists
 server.log
 songs.json
 utunes.json
