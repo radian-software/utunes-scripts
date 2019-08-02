@@ -33,11 +33,11 @@ def main():
         # Blind trust in my ability to make playlist names that aren't
         # malicious.
         playlist_name = playlist_name.replace("/", "-")
-        playlist_file = PLAYLISTS_DIR / (playlist_name + ".m3u8")
+        playlist_file = PLAYLISTS_DIR / (playlist_name + ".m3u")
         with open(playlist_file, "w") as f:
             for sid in song_ids:
                 song = library["songs"][sid]
-                filename = "../" + RCLONE_MUSIC_SUBDIR + "/" + song["filename"]
+                filename = song["filename"]
                 f.write(str(filename))
                 f.write("\n")
     step("Synchronize playlist files to Google Drive")
