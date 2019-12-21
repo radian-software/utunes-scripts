@@ -527,17 +527,15 @@ def import_album(root_dir):
                             die("song metadata contains pipe character")
                     lines.append("|".join(song[field] for field in fields) + "\n")
                 regex = (
-                    r"\|".join(r"(P<{}>[^|]*)".format(field) for field in fields)
+                    r"\|".join(r"(?P<{}>[^|]*)".format(field) for field in fields)
                     + r"\n"
                 )
-                print(regex)
-                print("".join(lines))
-                # result = subprocess.run(
-                #     ["utunes", "write", regex], input="".join(lines)
-                # )
-                # if result.returncode != 0:
-                #     print("µTunes returned error {}".format(result))
-                #     continue
+                result = subprocess.run(
+                    ["utunes", "write", regex], input="".join(lines), encoding="utf-8"
+                )
+                if result.returncode != 0:
+                    print("µTunes returned error {}".format(result.returncode))
+                    continue
             else:
                 print("no such command: {}".format(cmd))
                 continue
