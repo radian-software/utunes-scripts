@@ -68,3 +68,15 @@ Tags:
     * `refined_source`: if I purchased the album and then needed to
       pirate a better-tagged version of it from somewhere else, a URL
       for the secondary source
+
+Currently nullable fields:
+* `composer`
+* `composer_sort`
+* `group`
+* `last_play`
+* `min_price` **(should not be nullable: fix)**
+* `paid` **(should not be nullable: fix)**
+* `refined_source`
+* `track`
+* `tracklist`
+* `year` **(should not be nullable: fix)**

@@ -1,3 +1,6 @@
+.import_history
+.import_state.json
+.import_state.json.bak
 __pycache__
 artwork
 import-playlists-read.cmd
