@@ -3,6 +3,7 @@
 .import_state.json.bak
 __pycache__
 artwork
+export
 import-playlists-read.cmd
 import-playlists-read.tab
 import-playlists-write.cmd
