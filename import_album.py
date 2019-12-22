@@ -567,6 +567,8 @@ def import_album(root_dir):
                         else:
                             if not yesno("overwrite {}?".format(fname)):
                                 continue
+                        with open(fpath, "wb") as f:
+                            f.write(artwork_db[digest]["data"])
                     except OSError as e:
                         print("failed to write artwork: {}".format(e))
                         continue
