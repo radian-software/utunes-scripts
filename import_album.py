@@ -596,9 +596,9 @@ def import_album(root_dir):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("directory", metavar="DIRECTORY", nargs="?", default=".")
+    parser.add_argument("directory", metavar="DIRECTORY", nargs="*", default=["."])
     args = parser.parse_args()
-    root_dir = pathlib.Path(args.directory).resolve()
+    root_dirs = [pathlib.Path(path).resolve() for path in args.directory]
     os.chdir(os.environ["UTUNES_LIBRARY"])
     histfile = ".import_history"
     try:
@@ -606,7 +606,7 @@ def main():
     except FileNotFoundError:
         pass
     atexit.register(readline.write_history_file, histfile)
-    import_album(root_dir=root_dir)
+    import_album(root_dirs=root_dirs)
 
 
 if __name__ == "__main__":
