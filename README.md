@@ -15,7 +15,7 @@ Tags:
           sorting
     * `album_artist`: the person or group responsible for the album,
       optimized for grouping albums
-        * `album_album_sort`: alternate album artist name that's more
+        * `album_artist_sort`: alternate album artist name that's more
           friendly for sorting
     * `artist`: the artist for the specific track, usually same as
       album artist
