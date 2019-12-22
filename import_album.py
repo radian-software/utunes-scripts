@@ -133,6 +133,7 @@ def extract_metadata(filename, artwork_db):
         # Stuff we need to add
         "song_sort": "",
         "album_sort": "",
+        "album_artist_sort": "",
         "artist_sort": "",
         "composer_sort": "",
         "acquired_legally": "",
@@ -497,11 +498,41 @@ def import_album(root_dir):
                     continue
                 print("loaded state from .import_state.json")
             elif "go".startswith(cmd):
+                for song in songs:
+                    for field in all_fields:
+                        if not song[field] and field not in (
+                            "album_artist_sort",
+                            "album_sort",
+                            "artist_sort",
+                            "composer_sort",
+                            "song_sort",
+                            "composer",
+                            "group",
+                            "last_play",
+                            "min_paid",
+                            "paid",
+                            "play_count",
+                            "refined_source",
+                            "tracklist",
+                        ):
+                            print("field has null values: {}".format(field))
+                            bad = True
+                            break
+                    if bad:
+                        break
+                if bad:
+                    continue
                 time_uuid = str(uuid.uuid1())
                 final_songs = [
                     {
                         **song,
                         "artwork": artwork_map.get(song["artwork"], song["artwork"]),
+                        "song_sort": song.get("song_sort", song("song", "")),
+                        "album_sort": song.get("album_sort", song("album", "")),
+                        "artist_sort": song.get("artist_sort", song("artist", "")),
+                        "composer_sort": song.get(
+                            "composer_sort", song("composer", "")
+                        ),
                         "import_uuid": time_uuid,
                     }
                     for song in songs

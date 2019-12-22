@@ -9,21 +9,21 @@ Tags:
 * Basic track information
     * `song`: name of the track
         * `song_sort`: alternate track name that's more friendly for
-          sorting
+          sorting (usually same as `song`)
     * `album`: name of the album
         * `album_sort`: alternate album name that's more friendly for
-          sorting
+          sorting (usually same as `album`)
     * `album_artist`: the person or group responsible for the album,
       optimized for grouping albums
         * `album_artist_sort`: alternate album artist name that's more
-          friendly for sorting
+          friendly for sorting (usually same as `album_artist`)
     * `artist`: the artist for the specific track, usually same as
       album artist
         * `artist_sort`: alternate track artist name that's more
-          friendly for sorting
+          friendly for sorting (usually same as `artist`)
     * `composer`: the composer of the specific track, or omitted
         * `composer_sort`: alternate composer name that's more
-          friendly for sorting
+          friendly for sorting (usually same as `composer`)
     * `track`: sequential number of the track (should be positive
       integer or omitted)
     * `disc`: sequential number of the disk (should be positive
@@ -73,10 +73,11 @@ Currently nullable fields:
 * `composer`
 * `composer_sort`
 * `group`
+* `import_uuid`
 * `last_play`
-* `min_price` **(should not be nullable: fix)**
-* `paid` **(should not be nullable: fix)**
+* `min_paid`
+* `paid`
+* `play_count`
 * `refined_source`
 * `track`
 * `tracklist`
-* `year` **(should not be nullable: fix)**
