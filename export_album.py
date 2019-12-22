@@ -89,8 +89,9 @@ def export_query(args):
                 mutagen.id3.APIC(
                     mime=mimetypes.guess_type(song["artwork"])[0],
                     data=f.read(),
-                    # needed for iTunes to see artwork:
+                    # needed for iTunes to see artwork (yes, really):
                     type=mutagen.id3.PictureType.OTHER,
+                    encoding=mutagen.id3.Encoding.LATIN1,
                 )
             )
         m_full.save()
