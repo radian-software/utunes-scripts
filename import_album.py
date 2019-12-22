@@ -102,7 +102,9 @@ def extract_metadata(filename, artwork_db):
     track = disambiguate(
         {re.sub(r"/.*", "", s) for s in m_easy.get("tracknumber") or ()}, filename
     )
-    disc = disambiguate(m_easy.get("discnumber"), filename)
+    disc = disambiguate(
+        {re.sub(r"/.*", "", s) for s in m_easy.get("discnumber") or ()}, filename
+    )
     artist_raw = disambiguate(m_easy.get("artist"), filename)
     album_artist_raw = disambiguate(m_easy.get("albumartist"), filename)
     artist = artist_raw or album_artist_raw
