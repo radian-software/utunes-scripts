@@ -21,6 +21,8 @@ import uuid
 
 import mutagen.easyid3
 import mutagen.mp3
+import requests
+import requests.exceptions
 import tabulate
 
 
@@ -183,8 +185,50 @@ def pseudonumeric_sort_key(x):
         return (1, x)
 
 
-def import_album(root_dir):
-    filenames = sorted(glob.glob(str(root_dir / "**/*.mp3"), recursive=True))
+XCLIP = ["xclip", "-o", "-selection", "clipboard", "-t"]
+
+
+def get_image_from_clipboard():
+    # Let's see what options we have.
+    targets = subprocess.run(
+        XCLIP + ["TARGETS"], check=True, stdout=subprocess.PIPE, encoding="utf-8",
+    ).stdout.splitlines()
+    # First see if it's a image copied from a web browser, in which
+    # case only a link is on the clipboard in some cases. (Yes,
+    # there's also an image/png target available, but this doesn't
+    # seem to actually contain any data sometimes.)
+    if "text/html" in targets:
+        html = subprocess.run(
+            XCLIP + ["text/html"], check=True, stdout=subprocess.PIPE, encoding="utf-8",
+        ).stdout
+        match = re.search(r'"(?P<url>https?://[^"]+)"', html)
+        if match:
+            url = match.group("url")
+            resp = requests.get(url, timeout=5)
+            if resp.status_code == requests.codes.ok:
+                data = resp.content
+                imgtype = imghdr.what(io.BytesIO(data))
+                if imgtype:
+                    return data, imgtype
+    # Now see if we can extract it directly from the clipboard. Note
+    # even if the image is not png, this seems to still give us a
+    # valid image, although maybe not a png.
+    if "image/png" in targets:
+        data = subprocess.run(
+            XCLIP + ["image/png"], check=True, stdout=subprocess.PIPE
+        ).stdout
+        imgtype = imghdr.what(io.BytesIO(data))
+        if imgtype:
+            return data, imgtype
+    return None, None
+
+
+def import_album(root_dirs):
+    filenames = sorted(
+        name
+        for root_dir in root_dirs
+        for name in glob.glob(str(root_dir / "**/*.mp3"), recursive=True)
+    )
     artwork_db = {}
     artwork_map = {}
     songs = [extract_metadata(fname, artwork_db) for fname in filenames]
@@ -412,31 +456,22 @@ def import_album(root_dir):
                     try:
                         with open(fname, "rb") as f:
                             data = f.read()
+                        imgtype = imghdr.what(io.BytesIO(data))
+                        if imgtype is None:
+                            raise OSError("file is not an image: {}".format(fname))
                     except OSError as e:
                         print("failed to read file: {}".format(e))
                         continue
                 else:
                     try:
-                        result = subprocess.run(
-                            [
-                                "xclip",
-                                "-o",
-                                "-selection",
-                                "clipboard",
-                                "-t",
-                                # even if image is not png, this will
-                                # give us a valid image (just not a
-                                # png)
-                                "image/png",
-                            ],
-                            stdout=subprocess.PIPE,
-                            check=True,
-                        )
-                        data = result.stdout
-                        imgtype = imghdr.what(io.BytesIO(data))
-                        if imgtype is None:
-                            raise OSError("could not decode image data")
-                    except (OSError, subprocess.CalledProcessError) as e:
+                        data, imgtype = get_image_from_clipboard()
+                        if data is None:
+                            raise OSError("no image on clipboard")
+                    except (
+                        OSError,
+                        subprocess.CalledProcessError,
+                        requests.exceptions.RequestException,
+                    ) as e:
                         print("failed to read clipboard: {}".format(e))
                         continue
                 digest = hashlib.md5(data).hexdigest()

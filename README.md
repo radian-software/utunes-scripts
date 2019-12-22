@@ -1,9 +1,18 @@
 # µTunes library
 
-* To download a Spotify album: <https://spotdl.com/>
-* To download from YouTube: <https://ytdl-org.github.io/youtube-dl/>
-* To transcode files to MP3: ???
-* To trim MP3 files: ???
+To download a Spotify album: <https://spotdl.com/>
+
+To download from YouTube:
+
+    $ youtube-dl -x --audio-format mp3 <url>
+    $ youtube-dl -o "%(playlist_index)d %(title)s.%(ext)s" -x --audio-format mp3 <url>
+
+To transcode files to MP3:
+
+    $ ffmpeg -i in.m4a out.mp3
+    $ for file in *.m4a; do ffmpeg -i $file ${file/m4a/mp3}; done
+
+To trim MP3 files: use `mp3splt`??
 
 Tags:
 * Basic track information
