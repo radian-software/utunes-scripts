@@ -529,6 +529,10 @@ def import_album(root_dir):
                             print("field has null values: {}".format(field))
                             bad = True
                             break
+                        if song["artwork"] not in artwork_map:
+                            print("artwork is unmapped: {}".format(song["artwork"]))
+                            bad = True
+                            break
                     if bad:
                         break
                 if bad:
@@ -537,7 +541,7 @@ def import_album(root_dir):
                 final_songs = [
                     {
                         **song,
-                        "artwork": artwork_map.get(song["artwork"], song["artwork"]),
+                        "artwork": artwork_map[song["artwork"]],
                         "song_sort": song["song_sort"] or song["song"],
                         "album_sort": song["album_sort"] or song["album"],
                         "album_artist_sort": song["album_artist_sort"]
@@ -546,6 +550,8 @@ def import_album(root_dir):
                         "composer_sort": song["composer_sort"] or song["composer"],
                         "artist": song["artist"] or song["album_artist"],
                         "min_price": song["min_price"] or song["paid"],
+                        "track": song["track"] and str(int(song["track"])),
+                        "disc": song["disc"] and str(int(song["disc"])),
                         "import_uuid": time_uuid,
                     }
                     for song in songs
@@ -570,10 +576,7 @@ def import_album(root_dir):
                         if "|" in song[field]:
                             die("song metadata contains pipe character")
                     lines.append("|".join(song[field] for field in fields) + "\n")
-                regex = (
-                    r"\|".join(r"(?P<{}>[^|]*)".format(field) for field in fields)
-                    + r"\n"
-                )
+                regex = r"\|".join(r"(?P<{}>[^|]*)".format(field) for field in fields)
                 result = subprocess.run(
                     ["utunes", "write", regex], input="".join(lines), encoding="utf-8"
                 )
