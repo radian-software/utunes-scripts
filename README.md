@@ -59,7 +59,8 @@ Tags:
       hex string)
     * `paid`: amount of money that was paid for the song in USD, in
       `XX.YY` format (`0.00` if pirated)
-        * `min_paid`: minimum purchase requirement (for Bandcamp etc.)
+        * `min_price`: minimum purchase requirement (for Bandcamp
+          etc.), if different from price
     * `date`: when the album was added to my library (or downloaded,
       if there was a delay), in `YYYY-MM-DD` format
     * `source`: URL of website that the download or purchase came from
@@ -75,7 +76,7 @@ Currently nullable fields:
 * `group`
 * `import_uuid`
 * `last_play`
-* `min_paid`
+* `min_price`
 * `paid`
 * `play_count`
 * `refined_source`

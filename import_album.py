@@ -144,7 +144,7 @@ def extract_metadata(filename, artwork_db):
         "as_gift": "",
         "group": "",
         "paid": "",
-        "min_paid": "",
+        "min_price": "",
         "date": "",
         "source": "",
         "tracklist": "",
@@ -506,6 +506,7 @@ def import_album(root_dir):
                     continue
                 print("loaded state from .import_state.json")
             elif "go".startswith(cmd):
+                bad = False
                 for song in songs:
                     for field in all_fields:
                         if not song[field] and field not in (
@@ -517,7 +518,7 @@ def import_album(root_dir):
                             "composer",
                             "group",
                             "last_play",
-                            "min_paid",
+                            "min_price",
                             "paid",
                             "play_count",
                             "refined_source",
@@ -535,12 +536,14 @@ def import_album(root_dir):
                     {
                         **song,
                         "artwork": artwork_map.get(song["artwork"], song["artwork"]),
-                        "song_sort": song.get("song_sort", song("song", "")),
-                        "album_sort": song.get("album_sort", song("album", "")),
-                        "artist_sort": song.get("artist_sort", song("artist", "")),
-                        "composer_sort": song.get(
-                            "composer_sort", song("composer", "")
-                        ),
+                        "song_sort": song["song_sort"] or song["song"],
+                        "album_sort": song["album_sort"] or song["album"],
+                        "album_artist_sort": song["album_artist_sort"]
+                        or song["album_artist"],
+                        "artist_sort": song["artist_sort"] or song["artist"],
+                        "composer_sort": song["composer_sort"] or song["composer"],
+                        "artist": song["artist"] or song["album_artist"],
+                        "min_price": song["min_price"] or song["paid"],
                         "import_uuid": time_uuid,
                     }
                     for song in songs
