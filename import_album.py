@@ -4,6 +4,8 @@ import base64
 import functools
 import glob
 import hashlib
+import imghdr
+import io
 import json
 import os
 import pathlib
@@ -420,12 +422,18 @@ def import_album(root_dir):
                                 "-selection",
                                 "clipboard",
                                 "-t",
+                                # even if image is not png, this will
+                                # give us a valid image (just not a
+                                # png)
                                 "image/png",
                             ],
                             stdout=subprocess.PIPE,
                             check=True,
                         )
                         data = result.stdout
+                        imgtype = imghdr.what(io.BytesIO(data))
+                        if imgtype is None:
+                            raise OSError("could not decode image data")
                     except (OSError, subprocess.CalledProcessError) as e:
                         print("failed to read clipboard: {}".format(e))
                         continue
@@ -433,7 +441,7 @@ def import_album(root_dir):
                 if digest in artwork_db:
                     print("digest already exists: {}".format(digest))
                     continue
-                artwork_db[digest] = {"data": data, "ext": ".png"}
+                artwork_db[digest] = {"data": data, "ext": "." + imgtype}
                 print("imported artwork, digest: {}".format(digest))
             elif "map".startswith(cmd):
                 if len(args) != 2:
