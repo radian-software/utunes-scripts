@@ -37,7 +37,7 @@ def export_query(args):
             [
                 "utunes",
                 "read",
-                "|".join("{" + field + "}" for field in fields) + "\n",
+                "|".join("{" + field + "}" for field in fields),
                 "--illegal-chars",
                 "|",
                 *args,
