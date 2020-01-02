@@ -114,6 +114,7 @@ def extract_metadata(filename, artwork_db):
     composer = disambiguate(m_easy.get("composer"), filename)
     year = disambiguate(m_easy.get("date"), filename)
     apics = m_full.tags.getall("APIC")
+    digest = ""
     digests = []
     for apic in apics:
         digest = hashlib.md5(apic.data).hexdigest()
