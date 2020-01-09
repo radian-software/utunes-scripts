@@ -99,8 +99,8 @@ def yesno(prompt):
 def extract_metadata(filename, artwork_db):
     m_easy = mutagen.easyid3.EasyID3(filename)
     m_full = mutagen.mp3.MP3(filename)
-    album = disambiguate(m_easy["album"], filename)
-    song = disambiguate(m_easy["title"], filename)
+    album = disambiguate(m_easy.get("album"), filename)
+    song = disambiguate(m_easy.get("title"), filename)
     track = disambiguate(
         {re.sub(r"/.*", "", s) for s in m_easy.get("tracknumber") or ()}, filename
     )
@@ -455,7 +455,7 @@ def import_album(root_dirs):
                 if len(args) >= 1:
                     fname = args[0]
                     try:
-                        with open(fname, "rb") as f:
+                        with open(os.path.expanduser(fname), "rb") as f:
                             data = f.read()
                         imgtype = imghdr.what(io.BytesIO(data))
                         if imgtype is None:
@@ -587,7 +587,7 @@ def import_album(root_dirs):
                         "artist": song["artist"] or song["album_artist"],
                         "min_price": song["min_price"] or song["paid"],
                         "track": song["track"] and str(int(song["track"])),
-                        "disc": song["disc"] and str(int(song["disc"])),
+                        "disc": (song["disc"] and str(int(song["disc"]))) or "1",
                         "import_uuid": time_uuid,
                     }
                     for song in songs

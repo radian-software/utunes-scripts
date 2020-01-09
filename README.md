@@ -12,7 +12,13 @@ To transcode files to MP3:
     $ ffmpeg -i in.m4a out.mp3
     $ for file in *.m4a; do ffmpeg -i $file ${file/m4a/mp3}; done
 
-To trim MP3 files: use `mp3splt`??
+To split a concatenated audio file into individual tracks:
+
+    $ mp3splt -p nt=<num tracks> -s in.mp3
+
+To crop an image:
+
+    $ display <image>
 
 Tags:
 * Basic track information
