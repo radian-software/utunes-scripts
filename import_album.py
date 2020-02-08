@@ -224,7 +224,7 @@ def get_image_from_clipboard():
     return None, None
 
 
-def import_album(root_dirs):
+def import_album(root_dirs, orig_cwd):
     filenames = sorted(
         name
         for root_dir in root_dirs
@@ -453,9 +453,9 @@ def import_album(root_dirs):
                     print("needs zero or one arguments")
                     continue
                 if len(args) >= 1:
-                    fname = args[0]
+                    fname = orig_cwd / os.path.expanduser(args[0])
                     try:
-                        with open(os.path.expanduser(fname), "rb") as f:
+                        with open(fname, "rb") as f:
                             data = f.read()
                         imgtype = imghdr.what(io.BytesIO(data))
                         if imgtype is None:
@@ -635,6 +635,7 @@ def main():
     parser.add_argument("directory", metavar="DIRECTORY", nargs="*", default=["."])
     args = parser.parse_args()
     root_dirs = [pathlib.Path(path).resolve() for path in args.directory]
+    orig_cwd = pathlib.Path(os.getcwd())
     os.chdir(os.environ["UTUNES_LIBRARY"])
     histfile = ".import_history"
     try:
@@ -642,7 +643,7 @@ def main():
     except FileNotFoundError:
         pass
     atexit.register(readline.write_history_file, histfile)
-    import_album(root_dirs=root_dirs)
+    import_album(root_dirs=root_dirs, orig_cwd=orig_cwd)
 
 
 if __name__ == "__main__":
