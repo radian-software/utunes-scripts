@@ -366,6 +366,8 @@ def import_album(root_dirs, orig_cwd):
                     song[field] = value
             elif "su".startswith(cmd):
                 for field in sorted(all_fields):
+                    if field.endswith("_sort"):
+                        continue
                     if field_values[field] == [""]:
                         value = safe_input("value for {}: ".format(field))
                         if value.isspace():
