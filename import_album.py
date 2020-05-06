@@ -567,7 +567,10 @@ def import_album(root_dirs, orig_cwd):
                             print("field has null values: {}".format(field))
                             bad = True
                             break
-                        if song["artwork"] not in artwork_map:
+                        if (
+                            song["artwork"] not in artwork_map
+                            and "." not in song["artwork"]
+                        ):
                             print("artwork is unmapped: {}".format(song["artwork"]))
                             bad = True
                             break
@@ -579,7 +582,9 @@ def import_album(root_dirs, orig_cwd):
                 final_songs = [
                     {
                         **song,
-                        "artwork": artwork_map[song["artwork"]],
+                        "artwork": artwork_map[song["artwork"]]
+                        if "." not in song["artwork"]
+                        else song["artwork"],
                         "song_sort": song["song_sort"] or song["song"],
                         "album_sort": song["album_sort"] or song["album"],
                         "album_artist_sort": song["album_artist_sort"]
