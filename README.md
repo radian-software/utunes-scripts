@@ -16,6 +16,12 @@ To split a concatenated audio file into individual tracks:
 
     $ mp3splt -p nt=<num tracks> -s in.mp3
 
+If the automatic silence detection isn't good enough, splitpoints can
+be provided and then automatically adjusted (timestamp `H:MM:SS`
+should be expressed as `MM.SS`):
+
+    $ mp3splt -a -p gap=3 in.mp3 0.00 ... EOF
+
 To crop an image:
 
     $ display <image>
