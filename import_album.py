@@ -89,7 +89,7 @@ def disambiguate(options, filename):
 
 def yesno(prompt):
     while True:
-        ans = safe_input(prompt + " []").lower()
+        ans = safe_input(prompt + " [y/n] ").lower()
         if ans[0] == "y":
             return True
         if ans[0] == "n":
@@ -97,34 +97,43 @@ def yesno(prompt):
 
 
 def extract_metadata(filename, artwork_db):
-    m_easy = mutagen.easyid3.EasyID3(filename)
-    m_full = mutagen.mp3.MP3(filename)
-    album = disambiguate(m_easy.get("album"), filename)
-    song = disambiguate(m_easy.get("title"), filename)
-    track = disambiguate(
-        {re.sub(r"/.*", "", s) for s in m_easy.get("tracknumber") or ()}, filename
-    )
-    disc = disambiguate(
-        {re.sub(r"/.*", "", s) for s in m_easy.get("discnumber") or ()}, filename
-    )
-    artist_raw = disambiguate(m_easy.get("artist"), filename)
-    album_artist_raw = disambiguate(m_easy.get("albumartist"), filename)
-    artist = artist_raw or album_artist_raw
-    album_artist = album_artist_raw or artist_raw
-    composer = disambiguate(m_easy.get("composer"), filename)
-    year = disambiguate(m_easy.get("date"), filename)
-    apics = m_full.tags.getall("APIC")
-    digest = ""
-    digests = []
-    for apic in apics:
-        digest = hashlib.md5(apic.data).hexdigest()
-        match = re.fullmatch(r"image/([a-z]+)", apic.mime)
-        extension = "." + match.group(1)
-        artwork_db[digest] = {
-            "data": apic.data,
-            "ext": extension,
-        }
-        digests.append(digest)
+    try:
+        m_easy = mutagen.easyid3.EasyID3(filename)
+        m_full = mutagen.mp3.MP3(filename)
+    except mutagen.MutagenError:
+        digest = ""
+        album = ""
+        song = ""
+        track = ""
+        disc = ""
+        artist = ""
+        album_artist = ""
+        composer = ""
+        year = ""
+    else:
+        album = disambiguate(m_easy.get("album"), filename)
+        song = disambiguate(m_easy.get("title"), filename)
+        track = disambiguate(
+            {re.sub(r"/.*", "", s) for s in m_easy.get("tracknumber") or ()}, filename
+        )
+        disc = disambiguate(
+            {re.sub(r"/.*", "", s) for s in m_easy.get("discnumber") or ()}, filename
+        )
+        artist_raw = disambiguate(m_easy.get("artist"), filename)
+        album_artist_raw = disambiguate(m_easy.get("albumartist"), filename)
+        artist = artist_raw or album_artist_raw
+        album_artist = album_artist_raw or artist_raw
+        composer = disambiguate(m_easy.get("composer"), filename)
+        year = disambiguate(m_easy.get("date"), filename)
+        apics = m_full.tags.getall("APIC")
+        digest = ""
+        digests = []
+        for apic in apics:
+            digest = hashlib.md5(apic.data).hexdigest()
+            match = re.fullmatch(r"image/([a-z]+)", apic.mime)
+            extension = "." + match.group(1)
+            artwork_db[digest] = {"data": apic.data, "ext": extension}
+            digests.append(digest)
     data = {
         # Stuff we get from ID3
         "artwork": digest,
@@ -155,8 +164,8 @@ def extract_metadata(filename, artwork_db):
         "tracklist": "",
         "refined_source": "",
     }
-    if "|" in json.dumps(data):
-        die("song metadata contains pipe character")
+    for key, val in data.items():
+        data[key] = val.replace("|", "[PIPE]")
     return data
 
 
@@ -192,7 +201,7 @@ XCLIP = ["xclip", "-o", "-selection", "clipboard", "-t"]
 def get_image_from_clipboard():
     # Let's see what options we have.
     targets = subprocess.run(
-        XCLIP + ["TARGETS"], check=True, stdout=subprocess.PIPE, encoding="utf-8",
+        XCLIP + ["TARGETS"], check=True, stdout=subprocess.PIPE, encoding="utf-8"
     ).stdout.splitlines()
     # First see if it's a image copied from a web browser, in which
     # case only a link is on the clipboard in some cases. (Yes,
@@ -200,7 +209,7 @@ def get_image_from_clipboard():
     # seem to actually contain any data sometimes.)
     if "text/html" in targets:
         html = subprocess.run(
-            XCLIP + ["text/html"], check=True, stdout=subprocess.PIPE, encoding="utf-8",
+            XCLIP + ["text/html"], check=True, stdout=subprocess.PIPE, encoding="utf-8"
         ).stdout
         match = re.search(r'"(?P<url>https?://[^"]+)"', html)
         if match:
@@ -228,7 +237,7 @@ def import_album(root_dirs, orig_cwd):
     filenames = sorted(
         name
         for root_dir in root_dirs
-        for name in glob.glob(str(root_dir / "**/*.mp3"), recursive=True)
+        for name in glob.glob(glob.escape(root_dir) + "/**/*.mp3", recursive=True)
     )
     artwork_db = {}
     artwork_map = {}
@@ -439,7 +448,7 @@ def import_album(root_dirs, orig_cwd):
                     if "fptr" in artwork_db[digest]:
                         artwork_db[digest]["fptr"].close()
                     fptr = tempfile.NamedTemporaryFile(
-                        "wb", suffix="." + digest + artwork_db[digest]["ext"],
+                        "wb", suffix="." + digest + artwork_db[digest]["ext"]
                     )
                     artwork_db[digest]["file"] = fptr
                     fptr.write(artwork_db[digest]["data"])

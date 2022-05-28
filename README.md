@@ -72,7 +72,7 @@ Tags:
     * `as_bundle`: `yes` or `no`, was obtained as part of a larger
       non-music purchase
     * `as_gift`: `yes` or `no`, was given as a gift (should still
-      include pricing information)
+      include pricing information; gift cards count)
     * `group`: used to separate a single album into multiple groups
       whose source information should be considered as separate, or to
       join parts of different albums together (either omitted to
