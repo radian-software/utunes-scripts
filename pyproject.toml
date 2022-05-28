@@ -6,10 +6,9 @@ authors = ["Radon Rosborough <radon.neon@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-mutagen = "^1.43"
-tabulate = "^0.8.6"
-xerox = "^0.4.1"
-requests = "^2.22"
+mutagen = "^1.45.1"
+tabulate = "^0.8.9"
+requests = "^2.27.1"
 
 [tool.poetry.dev-dependencies]
 
