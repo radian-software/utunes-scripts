@@ -4,7 +4,6 @@ import base64
 import functools
 import glob
 import hashlib
-import imghdr
 import io
 import json
 import os
@@ -19,6 +18,7 @@ import tempfile
 import traceback
 import uuid
 
+import filetype
 import mutagen.easyid3
 import mutagen.mp3
 import requests
@@ -217,9 +217,9 @@ def get_image_from_clipboard():
             resp = requests.get(url, timeout=5)
             if resp.status_code == requests.codes.ok:
                 data = resp.content
-                imgtype = imghdr.what(io.BytesIO(data))
-                if imgtype:
-                    return data, imgtype
+                imgtype = filetype.guess(data)
+                if imgtype and imgtype.mime.startswith("image/"):
+                    return data, imgtype.extension
     # Now see if we can extract it directly from the clipboard. Note
     # even if the image is not png, this seems to still give us a
     # valid image, although maybe not a png.
@@ -227,9 +227,9 @@ def get_image_from_clipboard():
         data = subprocess.run(
             XCLIP + ["image/png"], check=True, stdout=subprocess.PIPE
         ).stdout
-        imgtype = imghdr.what(io.BytesIO(data))
-        if imgtype:
-            return data, imgtype
+        imgtype = filetype.guess(data)
+        if imgtype and imgtype.mime.startswith("image/"):
+            return data, imgtype.extension
     return None, None
 
 
@@ -468,8 +468,8 @@ def import_album(root_dirs, orig_cwd):
                     try:
                         with open(fname, "rb") as f:
                             data = f.read()
-                        imgtype = imghdr.what(io.BytesIO(data))
-                        if imgtype is None:
+                        imgtype = filetype.guess(data)
+                        if imgtype is None or not imgtype.mime.startswith("image/"):
                             raise OSError("file is not an image: {}".format(fname))
                     except OSError as e:
                         print("failed to read file: {}".format(e))
@@ -490,7 +490,7 @@ def import_album(root_dirs, orig_cwd):
                 if digest in artwork_db:
                     print("digest already exists: {}".format(digest))
                     continue
-                artwork_db[digest] = {"data": data, "ext": "." + imgtype}
+                artwork_db[digest] = {"data": data, "ext": "." + imgtype.extension}
                 print("imported artwork, digest: {}".format(digest))
             elif "map".startswith(cmd):
                 if len(args) != 2:
