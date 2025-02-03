@@ -609,6 +609,7 @@ def import_album(root_dirs, orig_cwd):
                     for song in songs
                 ]
                 fields = sorted(all_fields) + ["import_uuid"]
+                abort = False
                 for digest, fname in artwork_map.items():
                     fpath = pathlib.Path(".") / "artwork" / fname
                     try:
@@ -618,12 +619,15 @@ def import_album(root_dirs, orig_cwd):
                             pass
                         else:
                             if not yesno("overwrite {}?".format(fname)):
-                                continue
+                                abort = True
+                                break
                         with open(fpath, "wb") as f:
                             f.write(artwork_db[digest]["data"])
                     except OSError as e:
                         print("failed to write artwork: {}".format(e))
-                        continue
+                        abort = True
+                if abort:
+                    continue
                 lines = []
                 for song in final_songs:
                     for field in fields:
