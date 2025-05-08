@@ -219,7 +219,7 @@ def get_image_from_clipboard():
                 data = resp.content
                 imgtype = filetype.guess(data)
                 if imgtype and imgtype.mime.startswith("image/"):
-                    return data, imgtype.extension
+                    return data, imgtype
     # Now see if we can extract it directly from the clipboard. Note
     # even if the image is not png, this seems to still give us a
     # valid image, although maybe not a png.
@@ -229,7 +229,7 @@ def get_image_from_clipboard():
         ).stdout
         imgtype = filetype.guess(data)
         if imgtype and imgtype.mime.startswith("image/"):
-            return data, imgtype.extension
+            return data, imgtype
     return None, None
 
 
