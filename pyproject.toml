@@ -6,7 +6,7 @@ authors = ["Radon Rosborough <radon.neon@gmail.com>"]
 package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
 mutagen = "^1.45.1"
 tabulate = "^0.8.9"
 requests = "^2.32.4"
