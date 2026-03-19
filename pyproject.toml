@@ -9,7 +9,7 @@ package-mode = false
 python = "^3.8"
 mutagen = "^1.45.1"
 tabulate = "^0.8.9"
-requests = "^2.27.1"
+requests = "^2.32.4"
 filetype = "^1.2.0"
 
 [build-system]
